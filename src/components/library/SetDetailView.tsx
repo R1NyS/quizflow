@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import {
   Brain,
   ChevronLeft,
@@ -8,12 +10,13 @@ import {
   Layers,
   LayoutGrid,
   RotateCcw,
+  Share2,
   Star,
   Trash2,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { StudyModeId, StudySet } from '../../types';
-import { downloadJsonFile } from '../../utils/storage';
+import { createShareUrl, downloadJsonFile } from '../../utils/storage';
 import { formatDurationMs, pluralizeCards } from '../../utils/text';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
@@ -81,6 +84,32 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
     notify(`Набор «${set.title}» сохранён в JSON`, 'success');
   };
 
+  const handleShare = async (sharedSet: StudySet, label: string) => {
+    try {
+      const publicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL?.trim();
+      if (Capacitor.isNativePlatform() && !publicAppUrl) {
+        notify('Укажите VITE_PUBLIC_APP_URL — адрес сайта, который будет открываться по ссылке из APK.', 'error');
+        return;
+      }
+      const url = createShareUrl(sharedSet);
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({
+          title: sharedSet.title,
+          text: `Набор QuizFlow: ${sharedSet.title}`,
+          url,
+          dialogTitle: `Поделиться: ${label}`,
+        });
+      } else if (navigator.share) {
+        await navigator.share({ title: sharedSet.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        notify(`Ссылка на ${label} скопирована`, 'success');
+      }
+    } catch {
+      notify('Не удалось открыть меню отправки. Попробуйте скопировать ссылку из браузера.', 'error');
+    }
+  };
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <button
@@ -121,6 +150,13 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleShare(set, 'набор')}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+          >
+            <Share2 className="h-4 w-4" /> Поделиться
+          </button>
           <button
             type="button"
             onClick={() => setView({ name: 'editor', setId: set.id })}
@@ -236,6 +272,23 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
                 {card.definition}
               </div>
               <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const oneCardSet: StudySet = {
+                      ...set,
+                      title: `${card.term} — ${set.title}`,
+                      description: `Карточка из набора «${set.title}»`,
+                      cards: [card],
+                    };
+                    void handleShare(oneCardSet, 'карточку');
+                  }}
+                  aria-label={`Поделиться карточкой ${card.term}`}
+                  title="Поделиться карточкой"
+                  className="rounded-lg p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-400"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
                 <span
                   className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
                     card.mastery === 'mastered'

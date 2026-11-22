@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { BookOpen, Download, Moon, Plus, Sun, Upload } from 'lucide-react';
+import { BookOpen, Download, Moon, Plus, Sun, Upload, UserRound } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import {
   CURRENT_SCHEMA_VERSION,
@@ -8,7 +8,7 @@ import {
 } from '../../utils/storage';
 
 export const Header: React.FC = () => {
-  const { sets, theme, toggleTheme, setView, importSets, notify } = useApp();
+  const { sets, theme, profile, toggleTheme, setView, importSets, notify } = useApp();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleExportAll = () => {
@@ -56,7 +56,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/85">
+    <header className="safe-area-top sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/85">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <button
           type="button"
@@ -113,6 +113,16 @@ export const Header: React.FC = () => {
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Создать набор</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setView({ name: 'profile' })}
+            title="Личный профиль"
+            aria-label="Открыть личный профиль"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            {profile.name ? <span className="text-sm font-semibold">{profile.name.charAt(0).toUpperCase()}</span> : <UserRound className="h-4 w-4" />}
           </button>
 
           <button

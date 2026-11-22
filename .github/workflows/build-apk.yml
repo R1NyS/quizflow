@@ -28,6 +28,8 @@ jobs:
         run: rm -f package-lock.json && npm install
 
       - name: Build web app
+        env:
+          VITE_PUBLIC_APP_URL: https://quizflow-lxwlne82u-rinys.vercel.app
         run: npm run build
 
       - name: Sync Capacitor Android project

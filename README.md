@@ -30,3 +30,15 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Android share links
+
+Set `VITE_PUBLIC_APP_URL` to the published website URL before building the Android APK. For GitHub Actions, add it as a repository Actions variable with the name `VITE_PUBLIC_APP_URL`. APK share actions use Android's native share sheet and point to that website, where recipients can preview and import the shared set or card. Without this public URL, the app will ask to configure it instead of sharing an unusable `capacitor://localhost` link.
+
+For a local web build, copy `.env.example` to `.env.local` and set `VITE_PUBLIC_APP_URL` to the public website address when preparing a deployable build.
+
+## Server accounts and cloud sync
+
+The app uses Supabase Auth for email/password accounts and Supabase Postgres for the user's library. The public project URL and publishable key are set in `.env.production` and are included in the Vercel and APK builds. Create the Supabase project, run `supabase/migrations/20261122000000_user_data.sql` in its SQL Editor, and enable email sign-in. In **Authentication → URL Configuration**, set the Site URL and add `https://quizflow-lxwlne82u-rinys.vercel.app/**` to the allowed redirect URLs. Redeploy the website and rebuild the APK after configuration. Never put a Supabase secret/service-role key in client environment variables.
+
+For local production builds, copy `.env.example` to `.env.local` and fill in all three `VITE_` values. The app merges existing local sets into the account library at first sign-in, then syncs library changes between devices.

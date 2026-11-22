@@ -67,6 +67,11 @@ export function useAndroidBackButton(): void {
           return;
         }
 
+        if (currentView.name === 'profile') {
+          setViewRef.current({ name: 'library' });
+          return;
+        }
+
         // 3. Главный экран: выход по двойному нажатию «Назад»
         const now = Date.now();
         if (now - lastBackPressRef.current < EXIT_DOUBLE_PRESS_WINDOW_MS) {

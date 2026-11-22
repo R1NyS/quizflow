@@ -1,8 +1,71 @@
 import { createSeedSets } from '../data/seedSets';
-import { Card, MasteryStatus, StorageSchemaV1, StudySet, ThemeMode } from '../types';
+import { Card, MasteryStatus, StorageSchemaV1, StudySet, ThemeMode, UserProfile } from '../types';
 
 export const STORAGE_KEY = 'quizflow_storage_v1';
 export const CURRENT_SCHEMA_VERSION = 1 as const;
+export const PROFILE_STORAGE_KEY = 'quizflow_profile_v1';
+
+export function loadProfile(): UserProfile {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_KEY) ?? 'null');
+    if (isRecord(parsed)) {
+      return {
+        name: typeof parsed.name === 'string' ? parsed.name : '',
+        email: typeof parsed.email === 'string' ? parsed.email : '',
+      };
+    }
+  } catch {
+    // Ignore an invalid local profile and show the setup form.
+  }
+  return { name: '', email: '' };
+}
+
+export function saveProfile(profile: UserProfile): boolean {
+  try {
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function encodeBase64Url(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function decodeBase64Url(value: string): string {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(base64 + '='.repeat((4 - (base64.length % 4)) % 4));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+export function createShareUrl(set: StudySet): string {
+  const shareable = {
+    title: set.title,
+    description: set.description,
+    tags: set.tags,
+    cards: set.cards.map(({ term, definition }) => ({ term, definition })),
+  };
+  const publicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL?.trim();
+  const isNativeApp = window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:';
+  const url = new URL(isNativeApp ? (publicAppUrl || window.location.href) : window.location.href);
+  url.hash = `share=${encodeBase64Url(JSON.stringify(shareable))}`;
+  return url.toString();
+}
+
+export function readSharedSetFromUrl(): StudySet | null {
+  const match = window.location.hash.match(/^#share=([\w-]+)$/);
+  if (!match) return null;
+  try {
+    return sanitizeStudySet(JSON.parse(decodeBase64Url(match[1])), true);
+  } catch {
+    return null;
+  }
+}
 
 export function generateId(prefix = 'id'): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

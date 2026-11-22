@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Header } from './components/layout/Header';
@@ -12,9 +12,14 @@ import { MatchMode } from './components/modes/MatchMode';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { AppProvider, useApp } from './store/AppContext';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
+import { ProfileView } from './components/profile/ProfileView';
+import { SharedSetView } from './components/share/SharedSetView';
+import { readSharedSetFromUrl } from './utils/storage';
+import { StudySet } from './types';
 
 const AppContent: React.FC = () => {
   const { view, getSetById } = useApp();
+  const [sharedSet, setSharedSet] = useState<StudySet | null>(() => readSharedSetFromUrl());
 
   useAndroidBackButton();
 
@@ -24,10 +29,19 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const handleHashChange = () => setSharedSet(readSharedSetFromUrl());
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const renderMain = () => {
+    if (sharedSet) return <SharedSetView set={sharedSet} onClose={() => setSharedSet(null)} />;
     if (view.name === 'library') {
       return <LibraryView />;
     }
+
+    if (view.name === 'profile') return <ProfileView />;
 
     if (view.name === 'editor') {
       const existing = view.setId ? getSetById(view.setId) : undefined;

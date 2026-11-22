@@ -23,6 +23,11 @@ export interface StudySet {
 
 export type ThemeMode = 'light' | 'dark';
 
+export interface UserProfile {
+  name: string;
+  email: string;
+}
+
 export interface StorageSchemaV1 {
   version: 1;
   theme: ThemeMode;
@@ -35,6 +40,7 @@ export type AppView =
   | { name: 'library' }
   | { name: 'detail'; setId: string }
   | { name: 'editor'; setId: string | null }
+  | { name: 'profile' }
   | { name: 'mode'; mode: StudyModeId; setId: string };
 
 export type ToastType = 'success' | 'error' | 'info';
