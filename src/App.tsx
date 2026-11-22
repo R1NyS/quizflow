@@ -16,12 +16,37 @@ import { ProfileView } from './components/profile/ProfileView';
 import { SharedSetView } from './components/share/SharedSetView';
 import { readSharedSetFromUrl } from './utils/storage';
 import { StudySet } from './types';
+import { appViewFromPath, pathForAppView } from './utils/routes';
 
 const AppContent: React.FC = () => {
-  const { view, getSetById } = useApp();
+  const { view, getSetById, setView } = useApp();
   const [sharedSet, setSharedSet] = useState<StudySet | null>(() => readSharedSetFromUrl());
 
   useAndroidBackButton();
+
+  useEffect(() => {
+    const handlePopState = () => setView(appViewFromPath(window.location.pathname));
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [setView]);
+
+  useEffect(() => {
+    const nextPath = pathForAppView(view);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({ quizflowRoute: true }, '', nextPath);
+    }
+
+    const setTitle = view.name === 'library'
+      ? 'Библиотека'
+      : view.name === 'profile'
+        ? 'Профиль'
+        : view.name === 'editor'
+          ? view.setId ? 'Редактирование набора' : 'Новый набор'
+          : view.name === 'detail'
+            ? getSetById(view.setId)?.title ?? 'Набор'
+            : `${view.mode === 'flashcards' ? 'Карточки' : view.mode === 'learn' ? 'Учить' : view.mode === 'test' ? 'Тест' : 'Сопоставление'} — ${getSetById(view.setId)?.title ?? 'Набор'}`;
+    document.title = `${setTitle} — QuizFlow`;
+  }, [view, getSetById]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -75,7 +100,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
+    <div className="min-h-screen w-full min-w-0 overflow-x-clip bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
       <Header />
       {renderMain()}
       <ToastContainer />

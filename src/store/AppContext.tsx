@@ -29,6 +29,7 @@ import {
   sanitizeStudySet,
 } from '../utils/storage';
 import { supabase, supabaseConfigured } from '../lib/supabase';
+import { appViewFromPath } from '../utils/routes';
 
 interface AppState {
   sets: StudySet[];
@@ -232,7 +233,7 @@ function createInitialState(): AppState {
     sets: persisted.sets,
     theme: persisted.theme,
     profile: loadProfile(),
-    view: { name: 'library' },
+    view: appViewFromPath(window.location.pathname),
     toasts: [],
   };
 }

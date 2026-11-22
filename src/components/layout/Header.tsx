@@ -57,17 +57,17 @@ export const Header: React.FC = () => {
 
   return (
     <header className="safe-area-top sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/85">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-2 py-2 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-3">
         <button
           type="button"
           onClick={() => setView({ name: 'library' })}
           className="flex items-center gap-2.5 rounded-xl py-1 text-left transition hover:opacity-85"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm sm:h-9 sm:w-9">
             <BookOpen className="h-5 w-5" />
           </div>
-          <div>
-            <span className="block text-base font-bold tracking-tight text-slate-900 dark:text-white">
+          <div className="min-w-0">
+            <span className="block text-sm font-bold tracking-tight text-slate-900 dark:text-white sm:text-base">
               QuizFlow
             </span>
             <span className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
@@ -76,7 +76,7 @@ export const Header: React.FC = () => {
           </div>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 sm:gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -89,7 +89,7 @@ export const Header: React.FC = () => {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             title="Импорт набора или резервной копии из JSON"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 p-0 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:h-auto sm:w-auto sm:px-3 sm:py-2"
           >
             <Upload className="h-4 w-4" />
             <span className="hidden md:inline">Импорт JSON</span>
@@ -100,7 +100,7 @@ export const Header: React.FC = () => {
             onClick={handleExportAll}
             disabled={sets.length === 0}
             title="Экспортировать всю базу в JSON"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 p-0 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:h-auto sm:w-auto sm:px-3 sm:py-2"
           >
             <Download className="h-4 w-4" />
             <span className="hidden md:inline">Бэкап</span>
@@ -109,7 +109,7 @@ export const Header: React.FC = () => {
           <button
             type="button"
             onClick={() => setView({ name: 'editor', setId: null })}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 p-0 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Создать набор</span>
@@ -120,7 +120,7 @@ export const Header: React.FC = () => {
             onClick={() => setView({ name: 'profile' })}
             title="Личный профиль"
             aria-label="Открыть личный профиль"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             {profile.name ? <span className="text-sm font-semibold">{profile.name.charAt(0).toUpperCase()}</span> : <UserRound className="h-4 w-4" />}
           </button>
@@ -134,7 +134,7 @@ export const Header: React.FC = () => {
                 : 'Переключить на тёмную тему'
             }
             title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             {theme === 'dark' ? (
               <Sun className="h-4 w-4" />

@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
 .safe-area-top {
   padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 }
