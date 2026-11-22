@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core';
+import { QueueStrategy, TextToSpeech } from '@capacitor-community/text-to-speech';
+
 export type SpeechLangOption =
   | 'auto'
   | 'ru-RU'
@@ -18,8 +21,10 @@ export const SPEECH_LANG_LABELS: Record<SpeechLangOption, string> = {
 export function isSpeechSupported(): boolean {
   return (
     typeof window !== 'undefined' &&
-    'speechSynthesis' in window &&
-    typeof SpeechSynthesisUtterance !== 'undefined'
+    (Capacitor.isNativePlatform() || (
+      'speechSynthesis' in window &&
+      typeof SpeechSynthesisUtterance !== 'undefined'
+    ))
   );
 }
 
@@ -43,7 +48,10 @@ export function detectSpeechLanguage(text: string): string {
 }
 
 export function stopSpeech(): void {
-  if (!isSpeechSupported()) return;
+  if (Capacitor.isNativePlatform()) {
+    void TextToSpeech.stop().catch(() => undefined);
+  }
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   try {
     window.speechSynthesis.cancel();
   } catch {
@@ -56,25 +64,67 @@ export function speakText(
   langOption: SpeechLangOption,
   onStart?: () => void,
   onEnd?: () => void
-): void {
-  if (!isSpeechSupported() || !text.trim()) return;
+): Promise<boolean> {
+  if (!text.trim()) {
+    onEnd?.();
+    return Promise.resolve(false);
+  }
+
+  const lang = langOption === 'auto' ? detectSpeechLanguage(text) : langOption;
+
+  if (Capacitor.isNativePlatform()) {
+    onStart?.();
+    const speakNatively = async (attempt = 0): Promise<boolean> => {
+      try {
+        await TextToSpeech.speak({
+          text,
+          lang,
+          rate: 0.96,
+          pitch: 1,
+          volume: 1,
+          queueStrategy: QueueStrategy.Flush,
+        });
+        return true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (attempt < 3 && /not yet initialized/i.test(message)) {
+          await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
+          return speakNatively(attempt + 1);
+        }
+        return false;
+      }
+    };
+
+    return speakNatively()
+      .finally(() => onEnd?.());
+  }
 
   stopSpeech();
 
+  if (!isSpeechSupported()) {
+    onEnd?.();
+    return Promise.resolve(false);
+  }
+
   try {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang =
-      langOption === 'auto' ? detectSpeechLanguage(text) : langOption;
+    utterance.lang = lang;
     utterance.rate = 0.96;
 
     if (onStart) utterance.onstart = onStart;
-    if (onEnd) {
-      utterance.onend = onEnd;
-      utterance.onerror = onEnd;
-    }
-
-    window.speechSynthesis.speak(utterance);
+    return new Promise((resolve) => {
+      utterance.onend = () => {
+        onEnd?.();
+        resolve(true);
+      };
+      utterance.onerror = () => {
+        onEnd?.();
+        resolve(false);
+      };
+      window.speechSynthesis.speak(utterance);
+    });
   } catch {
     onEnd?.();
+    return Promise.resolve(false);
   }
 }

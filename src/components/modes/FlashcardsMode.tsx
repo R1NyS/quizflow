@@ -267,14 +267,19 @@ export const FlashcardsMode: React.FC<FlashcardsModeProps> = ({ set }) => {
       e?.stopPropagation();
       if (!speechAvailable || !currentCard) return;
       const textToRead = isFlipped ? backText : frontText;
-      speakText(
+      void speakText(
         textToRead,
         speechLang,
         () => setIsSpeaking(true),
         () => setIsSpeaking(false)
-      );
+      ).then((spoken) => {
+        if (!spoken) {
+          setIsSpeaking(false);
+          notify('Не удалось озвучить слово. Проверьте, установлен ли на телефоне голосовой движок.', 'error');
+        }
+      });
     },
-    [speechAvailable, currentCard, isFlipped, backText, frontText, speechLang]
+    [speechAvailable, currentCard, isFlipped, backText, frontText, speechLang, notify]
   );
 
   // Горячие клавиши

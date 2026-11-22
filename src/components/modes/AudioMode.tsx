@@ -16,7 +16,9 @@ export const AudioMode: React.FC<{ set: StudySet }> = ({ set }) => {
 
   const play = () => {
     if (!card) return;
-    speakText(card.term, 'auto');
+    void speakText(card.term, 'auto').then((spoken) => {
+      if (!spoken) notify('Не удалось озвучить слово. Проверьте, установлен ли на телефоне голосовой движок.','error');
+    });
   };
 
   const checkAnswer = () => {
