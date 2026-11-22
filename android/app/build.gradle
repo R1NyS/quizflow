@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def releaseSigningFile = rootProject.file('key.properties')
+def releaseSigningProperties = new Properties()
+if (releaseSigningFile.exists()) {
+    releaseSigningFile.withInputStream { releaseSigningProperties.load(it) }
+}
+
 android {
     namespace = "ru.quizflow.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +22,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    if (releaseSigningFile.exists()) {
+        signingConfigs {
+            release {
+                storeFile rootProject.file(releaseSigningProperties['storeFile'])
+                storePassword releaseSigningProperties['storePassword']
+                keyAlias releaseSigningProperties['keyAlias']
+                keyPassword releaseSigningProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseSigningFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
