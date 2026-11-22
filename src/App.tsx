@@ -9,6 +9,10 @@ import { FlashcardsMode } from './components/modes/FlashcardsMode';
 import { LearnMode } from './components/modes/LearnMode';
 import { TestMode } from './components/modes/TestMode';
 import { MatchMode } from './components/modes/MatchMode';
+import { AudioMode } from './components/modes/AudioMode';
+import { DailyReviewView } from './components/modes/DailyReviewView';
+import { DuelMode } from './components/modes/DuelMode';
+import { CollaborativeSetView } from './components/share/CollaborativeSetView';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { AppProvider, useApp } from './store/AppContext';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
@@ -40,6 +44,12 @@ const AppContent: React.FC = () => {
       ? 'Библиотека'
       : view.name === 'profile'
         ? 'Профиль'
+        : view.name === 'daily-review'
+          ? 'Повторение на сегодня'
+        : view.name === 'duel'
+          ? 'Дуэль'
+        : view.name === 'collaboration'
+          ? 'Совместный набор'
         : view.name === 'editor'
           ? view.setId ? 'Редактирование набора' : 'Новый набор'
           : view.name === 'detail'
@@ -67,6 +77,9 @@ const AppContent: React.FC = () => {
     }
 
     if (view.name === 'profile') return <ProfileView />;
+    if (view.name === 'daily-review') return <DailyReviewView />;
+    if (view.name === 'collaboration') return <CollaborativeSetView inviteCode={view.inviteCode} />;
+    if (view.name === 'duel') return <DuelMode roomCode={view.roomCode ?? ''} set={view.setId ? getSetById(view.setId) : undefined} />;
 
     if (view.name === 'editor') {
       const existing = view.setId ? getSetById(view.setId) : undefined;
@@ -96,6 +109,8 @@ const AppContent: React.FC = () => {
         return <TestMode key={activeSet.id} set={activeSet} />;
       case 'match':
         return <MatchMode key={activeSet.id} set={activeSet} />;
+      case 'audio':
+        return <AudioMode key={activeSet.id} set={activeSet} />;
     }
   };
 

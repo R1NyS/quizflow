@@ -4,6 +4,7 @@ import {
   Download,
   Edit3,
   FolderOpen,
+  Flame,
   Plus,
   Search,
   Tag,
@@ -14,6 +15,7 @@ import { useApp } from '../../store/AppContext';
 import { StudySet } from '../../types';
 import { downloadJsonFile } from '../../utils/storage';
 import { formatDurationMs, pluralizeCards } from '../../utils/text';
+import { getDueCards, getStudyStreak, getTodayReviewCount } from '../../utils/study';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
 function getMasteryPercent(set: StudySet): number {
@@ -23,10 +25,13 @@ function getMasteryPercent(set: StudySet): number {
 }
 
 export const LibraryView: React.FC = () => {
-  const { sets, setView, deleteSet, notify } = useApp();
+  const { sets, setView, deleteSet, notify, studyStats, authUser } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [setToDelete, setSetToDelete] = useState<StudySet | null>(null);
+  const dueCount = useMemo(() => getDueCards(sets).length, [sets]);
+  const todayCount = getTodayReviewCount(studyStats);
+  const streak = getStudyStreak(studyStats);
 
   const allTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -80,7 +85,7 @@ export const LibraryView: React.FC = () => {
             Библиотека наборов
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Всего наборов: {sets.length} · Все данные хранятся локально в вашем браузере
+            Всего наборов: {sets.length} · {authUser ? 'Библиотека синхронизируется с аккаунтом' : 'Войдите в аккаунт для синхронизации'}
           </p>
         </div>
 
@@ -105,6 +110,18 @@ export const LibraryView: React.FC = () => {
           )}
         </div>
       </div>
+
+      <section className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <button type="button" onClick={() => setView({ name: 'daily-review' })} className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 p-4 text-left transition hover:border-indigo-400 dark:border-indigo-900/60 dark:from-indigo-950/50 dark:to-violet-950/30">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div><span className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Умное повторение</span><h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">Повторить сегодня</h2></div>
+            <span className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-bold text-white">{dueCount} {pluralizeCards(dueCount)}</span>
+          </div>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{todayCount} из {studyStats.dailyGoal} карточек сегодня · интервальные повторы подстраиваются под ответы</p>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/80 dark:bg-slate-900/70"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, (todayCount / studyStats.dailyGoal) * 100)}%` }} /></div>
+        </button>
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900"><Flame className="h-7 w-7 text-orange-500" /><div><div className="text-2xl font-bold text-slate-900 dark:text-white">{streak}</div><div className="text-xs text-slate-500 dark:text-slate-400">дней подряд</div></div></div>
+      </section>
 
       {allTags.length > 0 && (
         <div className="mt-5 flex flex-wrap items-center gap-2">

@@ -7,21 +7,26 @@ import {
   ClipboardCheck,
   Download,
   Edit3,
+  Headphones,
   Layers,
   LayoutGrid,
   RotateCcw,
   Share2,
+  Swords,
   Star,
   Trash2,
+  UsersRound,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { StudyModeId, StudySet } from '../../types';
 import { createShareUrl, downloadJsonFile } from '../../utils/storage';
+import { supabase } from '../../lib/supabase';
 import { formatDurationMs, pluralizeCards } from '../../utils/text';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface SetDetailViewProps {
   set: StudySet;
+  readOnly?: boolean;
 }
 
 const STUDY_MODES: Array<{
@@ -59,10 +64,17 @@ const STUDY_MODES: Array<{
     icon: LayoutGrid,
     accent: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/70',
   },
+  {
+    id: 'audio',
+    title: 'Аудиотренировка',
+    subtitle: 'Слушай произношение и вспоминай ответ',
+    icon: Headphones,
+    accent: 'text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/70',
+  },
 ];
 
-export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
-  const { setView, toggleCardStar, deleteSet, resetSetProgress, notify } =
+export const SetDetailView: React.FC<SetDetailViewProps> = ({ set, readOnly = false }) => {
+  const { setView, toggleCardStar, deleteSet, resetSetProgress, notify, authUser, adoptSharedSet } =
     useApp();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [onlyStarredFilter, setOnlyStarredFilter] = useState(false);
@@ -110,6 +122,34 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
     }
   };
 
+  const handleCollaborate = async () => {
+    if (!supabase || !authUser) {
+      notify('Для совместного редактирования войдите в аккаунт QuizFlow.', 'error');
+      setView({ name: 'profile' });
+      return;
+    }
+    if (set.collaborationId && set.collaborationCode) {
+      const url = `${window.location.origin}/collab/${encodeURIComponent(set.collaborationCode)}`;
+      try { await navigator.clipboard.writeText(url); notify('Ссылка для совместной работы скопирована', 'success'); }
+      catch { notify(url, 'info'); }
+      return;
+    }
+    const code = crypto.randomUUID().replaceAll('-', '');
+    const { data, error } = await supabase.from('shared_sets').insert({
+      invite_code: code, owner_id: authUser.id, title: set.title,
+      payload: set, allow_edit: true,
+    }).select('id').single();
+    if (error || !data) {
+      notify('Не удалось создать совместную ссылку. Проверьте, что миграция совместных наборов применена в Supabase.', 'error');
+      return;
+    }
+    const sharedSet = { ...set, collaborationId: data.id, collaborationCode: code, collaborationRole: 'owner' as const };
+    adoptSharedSet(sharedSet, true);
+    const url = `${window.location.origin}/collab/${encodeURIComponent(code)}`;
+    try { await navigator.clipboard.writeText(url); notify('Ссылка для совместного редактирования скопирована', 'success'); }
+    catch { notify(url, 'info'); }
+  };
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <button
@@ -150,30 +190,34 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          {!readOnly && <button type="button" onClick={() => void handleCollaborate()} className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-900 dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-indigo-950/40">
+            <UsersRound className="h-4 w-4" /> {set.collaborationId ? 'Скопировать приглашение' : 'Совместная работа'}
+          </button>}
+          {!readOnly && <button type="button" onClick={() => setView({ name: 'duel', setId: set.id, roomCode: crypto.randomUUID().replaceAll('-', '').slice(0, 12) })} className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-white px-3.5 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50 dark:border-violet-900 dark:bg-slate-900 dark:text-violet-300 dark:hover:bg-violet-950/40"><Swords className="h-4 w-4" /> Дуэль</button>}
+          {!readOnly && <button
             type="button"
             onClick={() => void handleShare(set, 'набор')}
             className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
           >
             <Share2 className="h-4 w-4" /> Поделиться
-          </button>
-          <button
+          </button>}
+          {!readOnly && <button
             type="button"
             onClick={() => setView({ name: 'editor', setId: set.id })}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <Edit3 className="h-4 w-4" />
             Редактировать
-          </button>
-          <button
+          </button>}
+          {!readOnly && <button
             type="button"
             onClick={handleExport}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <Download className="h-4 w-4" />
             JSON
-          </button>
-          <button
+          </button>}
+          {!readOnly && <button
             type="button"
             onClick={() => {
               resetSetProgress(set.id);
@@ -183,7 +227,7 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <RotateCcw className="h-4 w-4" />
-          </button>
+          </button>}
           <button
             type="button"
             onClick={() => setConfirmDeleteOpen(true)}
@@ -306,7 +350,8 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
                 </span>
                 <button
                   type="button"
-                  onClick={() => toggleCardStar(set.id, card.id)}
+                  onClick={() => !readOnly && toggleCardStar(set.id, card.id)}
+                  disabled={readOnly}
                   aria-label={
                     card.starred
                       ? 'Убрать из избранного'
@@ -328,7 +373,7 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
         </div>
       </section>
 
-      <ConfirmModal
+      {!readOnly && <ConfirmModal
         isOpen={confirmDeleteOpen}
         title="Удалить набор?"
         description={`Набор «${set.title}» будет удалён без возможности восстановления.`}
@@ -338,7 +383,7 @@ export const SetDetailView: React.FC<SetDetailViewProps> = ({ set }) => {
           notify(`Набор «${set.title}» удалён`, 'info');
         }}
         onCancel={() => setConfirmDeleteOpen(false)}
-      />
+      />}
     </main>
   );
 };

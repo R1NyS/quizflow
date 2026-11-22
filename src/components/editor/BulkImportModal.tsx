@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { FileSpreadsheet, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { FileSpreadsheet, ImageUp, LoaderCircle, X } from 'lucide-react';
 import {
   CardDelimiterOption,
   ParsedCardPreview,
@@ -28,6 +28,9 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
   const [customTermDelim, setCustomTermDelim] = useState(':');
   const [cardOpt, setCardOpt] = useState<CardDelimiterOption>('newline');
   const [customCardDelim, setCustomCardDelim] = useState('\n\n');
+  const imageFileRef = useRef<HTMLInputElement | null>(null);
+  const [ocrProgress, setOcrProgress] = useState<number | null>(null);
+  const [ocrError, setOcrError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -57,6 +60,60 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
     onImport(previewCards);
     setRawText('');
     onClose();
+  };
+
+  const handleOcrFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setOcrError('');
+    setOcrProgress(0);
+    let worker: Awaited<ReturnType<typeof import('tesseract.js').createWorker>> | null = null;
+    try {
+      const { createWorker } = await import('tesseract.js');
+      worker = await createWorker('rus+eng', 1, {
+        logger: (message) => {
+          if (message.status === 'recognizing text') setOcrProgress(Math.round(message.progress * 100));
+        },
+      });
+      let recognizedText = '';
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        const pdfjs = await import('pdfjs-dist');
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString();
+        const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+        const pagesToRead = Math.min(pdf.numPages, 8);
+        for (let pageNumber = 1; pageNumber <= pagesToRead; pageNumber += 1) {
+          setOcrProgress(Math.round(((pageNumber - 1) / pagesToRead) * 100));
+          const page = await pdf.getPage(pageNumber);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map((item) => 'str' in item ? item.str : '').join('\n');
+          if (pageText.trim().length > 30) {
+            recognizedText += `${pageText}\n`;
+          } else {
+            const viewport = page.getViewport({ scale: 1.5 });
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(viewport.width);
+            canvas.height = Math.ceil(viewport.height);
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Не удалось подготовить страницу PDF для распознавания.');
+            await page.render({ canvas, canvasContext: context, viewport }).promise;
+            const { data } = await worker.recognize(canvas);
+            recognizedText += `${data.text}\n`;
+          }
+        }
+        if (pdf.numPages > pagesToRead) setOcrError(`Обработаны первые ${pagesToRead} страницы из ${pdf.numPages}. Остальные страницы можно импортировать отдельно.`);
+      } else {
+        const { data } = await worker.recognize(file);
+        recognizedText = data.text;
+      }
+      setRawText((previous) => [previous.trim(), recognizedText.trim()].filter(Boolean).join('\n'));
+      setOcrProgress(100);
+    } catch (error) {
+      setOcrError(error instanceof Error ? error.message : 'Не удалось распознать файл. Попробуйте более чёткое фото.');
+    } finally {
+      await worker?.terminate();
+      window.setTimeout(() => setOcrProgress(null), 900);
+    }
   };
 
   return (
@@ -93,12 +150,20 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
 
         <div className="flex-1 space-y-5 overflow-y-auto p-6">
           <div>
-            <label
-              htmlFor="bulk-textarea"
-              className="block text-sm font-medium text-slate-700 dark:text-slate-200"
-            >
-              Вставьте список из Excel, Google Таблиц, Word или Блокнота
-            </label>
+            <input ref={imageFileRef} type="file" accept="image/*,application/pdf,.pdf" onChange={(event) => void handleOcrFile(event)} className="hidden" />
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <label
+                htmlFor="bulk-textarea"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-200"
+              >
+                Вставьте список или распознайте его из фото/PDF
+              </label>
+              <button type="button" onClick={() => imageFileRef.current?.click()} disabled={ocrProgress !== null} className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-60 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950/40">
+                {ocrProgress !== null ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ImageUp className="h-4 w-4" />}
+                {ocrProgress !== null ? `Распознаём ${ocrProgress}%` : 'Фото или PDF'}
+              </button>
+            </div>
+            {ocrError && <p role="status" className="mb-2 text-xs text-amber-700 dark:text-amber-300">{ocrError}</p>}
             <textarea
               id="bulk-textarea"
               rows={6}

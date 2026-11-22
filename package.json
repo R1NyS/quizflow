@@ -16,8 +16,10 @@
     "@capacitor/splash-screen": "^8.0.2",
     "@supabase/supabase-js": "^2.119.2",
     "lucide-react": "^1.77.0",
+    "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@capacitor/android": "^8.6.2",

@@ -1,9 +1,37 @@
 import { createSeedSets } from '../data/seedSets';
-import { Card, MasteryStatus, StorageSchemaV1, StudySet, ThemeMode, UserProfile } from '../types';
+import { Card, MasteryStatus, StorageSchemaV1, StudySet, StudyStats, ThemeMode, UserProfile } from '../types';
 
 export const STORAGE_KEY = 'quizflow_storage_v1';
 export const CURRENT_SCHEMA_VERSION = 1 as const;
 export const PROFILE_STORAGE_KEY = 'quizflow_profile_v1';
+export const STUDY_STATS_STORAGE_KEY = 'quizflow_study_stats_v1';
+
+export function loadStudyStats(): StudyStats {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(STUDY_STATS_STORAGE_KEY) ?? 'null');
+    if (isRecord(parsed)) {
+      const history = isRecord(parsed.dailyHistory)
+        ? Object.fromEntries(Object.entries(parsed.dailyHistory).filter((entry): entry is [string, number] => /^\d{4}-\d{2}-\d{2}$/.test(entry[0]) && typeof entry[1] === 'number' && Number.isFinite(entry[1])).map(([day, count]) => [day, Math.max(0, Math.floor(count))]))
+        : {};
+      return {
+        dailyGoal: typeof parsed.dailyGoal === 'number' ? Math.min(200, Math.max(5, Math.floor(parsed.dailyGoal))) : 20,
+        dailyHistory: history,
+      };
+    }
+  } catch {
+    // Start with a safe default if the browser storage is empty or corrupt.
+  }
+  return { dailyGoal: 20, dailyHistory: {} };
+}
+
+export function saveStudyStats(stats: StudyStats): boolean {
+  try {
+    window.localStorage.setItem(STUDY_STATS_STORAGE_KEY, JSON.stringify(stats));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function loadProfile(): UserProfile {
   try {
@@ -106,6 +134,18 @@ function sanitizeCard(raw: unknown): Card | null {
       typeof raw.lastReviewedAt === 'number' && Number.isFinite(raw.lastReviewedAt)
         ? raw.lastReviewedAt
         : null,
+    nextReviewAt:
+      typeof raw.nextReviewAt === 'number' && Number.isFinite(raw.nextReviewAt)
+        ? raw.nextReviewAt
+        : null,
+    reviewIntervalDays:
+      typeof raw.reviewIntervalDays === 'number' && Number.isFinite(raw.reviewIntervalDays)
+        ? Math.max(0, raw.reviewIntervalDays)
+        : 0,
+    reviewCount:
+      typeof raw.reviewCount === 'number' && Number.isFinite(raw.reviewCount)
+        ? Math.max(0, Math.floor(raw.reviewCount))
+        : 0,
   };
 }
 
@@ -155,6 +195,9 @@ export function sanitizeStudySet(raw: unknown, regenerateIds = false): StudySet 
       typeof raw.bestMatchTimeMs === 'number' && raw.bestMatchTimeMs > 0
         ? raw.bestMatchTimeMs
         : null,
+    ...(typeof raw.collaborationId === 'string' ? { collaborationId: raw.collaborationId } : {}),
+    ...(typeof raw.collaborationCode === 'string' ? { collaborationCode: raw.collaborationCode } : {}),
+    ...(raw.collaborationRole === 'owner' || raw.collaborationRole === 'editor' || raw.collaborationRole === 'viewer' ? { collaborationRole: raw.collaborationRole } : {}),
   };
 }
 

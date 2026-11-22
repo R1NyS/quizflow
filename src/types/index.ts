@@ -8,6 +8,9 @@ export interface Card {
   mastery: MasteryStatus;
   correctStreak: number;
   lastReviewedAt: number | null;
+  nextReviewAt?: number | null;
+  reviewIntervalDays?: number;
+  reviewCount?: number;
 }
 
 export interface StudySet {
@@ -19,6 +22,9 @@ export interface StudySet {
   createdAt: number;
   updatedAt: number;
   bestMatchTimeMs: number | null;
+  collaborationId?: string;
+  collaborationCode?: string;
+  collaborationRole?: 'owner' | 'editor' | 'viewer';
 }
 
 export type ThemeMode = 'light' | 'dark';
@@ -34,13 +40,21 @@ export interface StorageSchemaV1 {
   sets: StudySet[];
 }
 
-export type StudyModeId = 'flashcards' | 'learn' | 'test' | 'match';
+export interface StudyStats {
+  dailyGoal: number;
+  dailyHistory: Record<string, number>;
+}
+
+export type StudyModeId = 'flashcards' | 'learn' | 'test' | 'match' | 'audio';
 
 export type AppView =
   | { name: 'library' }
   | { name: 'detail'; setId: string }
   | { name: 'editor'; setId: string | null }
   | { name: 'profile' }
+  | { name: 'daily-review' }
+  | { name: 'duel'; setId?: string; roomCode?: string }
+  | { name: 'collaboration'; inviteCode: string }
   | { name: 'mode'; mode: StudyModeId; setId: string };
 
 export type ToastType = 'success' | 'error' | 'info';

@@ -5,6 +5,7 @@ const studyModes = new Set<StudyModeId>([
   'learn',
   'test',
   'match',
+  'audio',
 ]);
 
 function decodeSegment(segment: string): string | null {
@@ -26,6 +27,9 @@ export function appViewFromPath(pathname: string): AppView {
   if (segments.length === 1 && segments[0] === 'profile') {
     return { name: 'profile' };
   }
+  if (segments.length === 1 && segments[0] === 'review') return { name: 'daily-review' };
+  if (segments.length === 2 && segments[0] === 'duel') return { name: 'duel', roomCode: segments[1] };
+  if (segments.length === 2 && segments[0] === 'collab') return { name: 'collaboration', inviteCode: segments[1] };
   if (segments.length === 2 && segments[0] === 'sets' && segments[1] === 'new') {
     return { name: 'editor', setId: null };
   }
@@ -55,6 +59,12 @@ export function pathForAppView(view: AppView): string {
       return '/';
     case 'profile':
       return '/profile';
+    case 'daily-review':
+      return '/review';
+    case 'duel':
+      return `/duel/${encodeURIComponent(view.roomCode ?? 'new')}`;
+    case 'collaboration':
+      return `/collab/${encodeURIComponent(view.inviteCode)}`;
     case 'editor':
       return view.setId
         ? `/sets/${encodeURIComponent(view.setId)}/edit`
