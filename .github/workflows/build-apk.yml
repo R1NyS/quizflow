@@ -33,7 +33,9 @@ jobs:
         run: npm run build
 
       - name: Copy web assets to Android
-        run: npx cap copy android
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          cp -R dist/. android/app/src/main/assets/public/
 
       - name: Build Debug APK
         working-directory: android
