@@ -30,12 +30,11 @@ public class MainActivity extends BridgeActivity {
             Insets bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
             );
-            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
             v.setPadding(
                 bars.left,
                 bars.top,
                 bars.right,
-                Math.max(bars.bottom, ime.bottom)
+                bars.bottom
             );
             return WindowInsetsCompat.CONSUMED;
         });
