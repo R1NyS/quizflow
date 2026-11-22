@@ -43,6 +43,29 @@ android {
     }
 }
 
+tasks.register('verifyReleaseWebAssets') {
+    doLast {
+        def webDir = file('src/main/assets/public')
+        def entryPoint = new File(webDir, 'index.html')
+        if (!entryPoint.exists()) {
+            throw new GradleException('Android web assets are missing. Run npm run build and npx cap sync android before building a release.')
+        }
+
+        def html = entryPoint.getText('UTF-8')
+        def references = (html =~ /(?:src|href)="([^"]+)"/).collect { it[1] }
+        def missingAssets = references.findAll { reference ->
+            reference.startsWith('/assets/') && !new File(webDir, reference.substring(1)).exists()
+        }
+        if (!missingAssets.isEmpty()) {
+            throw new GradleException("Android release is missing web assets referenced by index.html: ${missingAssets.join(', ')}. Run npm run build and npx cap sync android, then rebuild.")
+        }
+    }
+}
+
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach {
+    dependsOn tasks.named('verifyReleaseWebAssets')
+}
+
 repositories {
     flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
