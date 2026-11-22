@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
-import { BookOpen, Download, Moon, Plus, Sun, Upload, UserRound } from 'lucide-react';
+import { BookOpen, Download, Moon, Plus, Sun, Upload } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
 import {
   CURRENT_SCHEMA_VERSION,
   downloadJsonFile,
@@ -122,7 +123,7 @@ export const Header: React.FC = () => {
             aria-label="Открыть личный профиль"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
-            {profile.name ? <span className="text-sm font-semibold">{profile.name.charAt(0).toUpperCase()}</span> : <UserRound className="h-4 w-4" />}
+            <ProfileAvatar name={profile.name} path={profile.avatarPath} className="h-8 w-8 bg-transparent text-slate-700 dark:text-slate-200" />
           </button>
 
           <button

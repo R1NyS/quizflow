@@ -40,12 +40,13 @@ export function loadProfile(): UserProfile {
       return {
         name: typeof parsed.name === 'string' ? parsed.name : '',
         email: typeof parsed.email === 'string' ? parsed.email : '',
+        avatarPath: typeof parsed.avatarPath === 'string' ? parsed.avatarPath : null,
       };
     }
   } catch {
     // Ignore an invalid local profile and show the setup form.
   }
-  return { name: '', email: '' };
+  return { name: '', email: '', avatarPath: null };
 }
 
 export function saveProfile(profile: UserProfile): boolean {

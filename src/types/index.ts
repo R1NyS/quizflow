@@ -32,6 +32,7 @@ export type ThemeMode = 'light' | 'dark';
 export interface UserProfile {
   name: string;
   email: string;
+  avatarPath?: string | null;
 }
 
 export interface StorageSchemaV1 {

@@ -261,6 +261,10 @@ interface AppContextValue {
   setView: (view: AppView) => void;
   toggleTheme: () => void;
   saveUserProfile: (profile: UserProfile) => void;
+  updateDisplayName: (name: string) => Promise<{ ok: boolean; error?: string }>;
+  updateAccountEmail: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  changePassword: (password: string) => Promise<{ ok: boolean; error?: string }>;
+  uploadAvatar: (file: File) => Promise<{ ok: boolean; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signUp: (name: string, email: string, password: string) => Promise<{ ok: boolean; confirmationRequired?: boolean; error?: string }>;
   signOut: () => Promise<void>;
@@ -392,7 +396,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       const accountName = typeof authUser.user_metadata.display_name === 'string'
         ? authUser.user_metadata.display_name
         : authUser.email?.split('@')[0] ?? '';
-      const nextProfile = { name: accountName, email: authUser.email ?? '' };
+      const avatarPath = typeof authUser.user_metadata.avatar_path === 'string' ? authUser.user_metadata.avatar_path : null;
+      const nextProfile = { name: accountName, email: authUser.email ?? '', avatarPath };
       saveProfile(nextProfile);
       dispatch({ type: 'SET_PROFILE', payload: nextProfile });
     })();
@@ -476,7 +481,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [state.theme]);
 
   const saveUserProfile = useCallback((profile: UserProfile) => {
-    const cleaned = { name: profile.name.trim(), email: profile.email.trim() };
+    const cleaned = { ...profile, name: profile.name.trim(), email: profile.email.trim() };
     if (!saveProfile(cleaned)) {
       notify('Не удалось сохранить профиль в браузере.', 'error');
       return;
@@ -484,6 +489,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     dispatch({ type: 'SET_PROFILE', payload: cleaned });
     notify('Профиль сохранён', 'success');
   }, [notify]);
+
+  const updateDisplayName = useCallback(async (name: string) => {
+    if (!supabase || !authUser) return { ok: false, error: 'Сначала войдите в аккаунт.' };
+    const cleanedName = name.trim();
+    if (!cleanedName) return { ok: false, error: 'Введите имя профиля.' };
+    const { data, error } = await supabase.auth.updateUser({
+      data: { ...authUser.user_metadata, display_name: cleanedName },
+    });
+    if (error) return { ok: false, error: error.message };
+    const nextProfile = { ...state.profile, name: cleanedName, email: data.user.email ?? state.profile.email };
+    setAuthUser(data.user);
+    if (saveProfile(nextProfile)) dispatch({ type: 'SET_PROFILE', payload: nextProfile });
+    notify('Имя профиля обновлено', 'success');
+    return { ok: true };
+  }, [authUser, notify, state.profile]);
+
+  const updateAccountEmail = useCallback(async (email: string) => {
+    if (!supabase || !authUser) return { ok: false, error: 'Сначала войдите в аккаунт.' };
+    const nextEmail = email.trim();
+    if (!nextEmail || nextEmail.toLowerCase() === (authUser.email ?? '').toLowerCase()) {
+      return { ok: false, error: 'Введите новый адрес электронной почты.' };
+    }
+    const { error } = await supabase.auth.updateUser({ email: nextEmail });
+    if (error) return { ok: false, error: error.message };
+    notify('Отправили письма для подтверждения нового адреса', 'success');
+    return { ok: true };
+  }, [authUser, notify]);
+
+  const changePassword = useCallback(async (password: string) => {
+    if (!supabase || !authUser) return { ok: false, error: 'Сначала войдите в аккаунт.' };
+    if (password.length < 8) return { ok: false, error: 'Пароль должен содержать не менее 8 символов.' };
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { ok: false, error: error.message };
+    notify('Пароль успешно изменён', 'success');
+    return { ok: true };
+  }, [authUser, notify]);
+
+  const uploadAvatar = useCallback(async (file: File) => {
+    if (!supabase || !authUser) return { ok: false, error: 'Сначала войдите в аккаунт.' };
+    const supportedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!supportedTypes.includes(file.type)) return { ok: false, error: 'Выберите изображение JPG, PNG или WebP.' };
+    if (file.size > 5 * 1024 * 1024) return { ok: false, error: 'Размер изображения должен быть не больше 5 МБ.' };
+    const path = `${authUser.id}/avatar`;
+    const { error: uploadError } = await supabase.storage.from('profile-avatars').upload(path, file, {
+      cacheControl: '3600', contentType: file.type, upsert: true,
+    });
+    if (uploadError) return { ok: false, error: uploadError.message };
+    const { data, error } = await supabase.auth.updateUser({
+      data: { ...authUser.user_metadata, avatar_path: path },
+    });
+    if (error) return { ok: false, error: error.message };
+    const nextProfile = { ...state.profile, name: state.profile.name || data.user.user_metadata.display_name || '', email: data.user.email ?? state.profile.email, avatarPath: path };
+    setAuthUser(data.user);
+    if (saveProfile(nextProfile)) dispatch({ type: 'SET_PROFILE', payload: nextProfile });
+    notify('Аватар обновлён', 'success');
+    return { ok: true };
+  }, [authUser, notify, state.profile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) return { ok: false, error: 'Серверная авторизация не настроена.' };
@@ -536,7 +598,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       notify('Не удалось выйти из аккаунта.', 'error');
       return;
     }
-    const emptyProfile = { name: '', email: '' };
+    const emptyProfile = { name: '', email: '', avatarPath: null };
     saveProfile(emptyProfile);
     dispatch({ type: 'SET_PROFILE', payload: emptyProfile });
     dispatch({ type: 'REPLACE_SETS', payload: [] });
@@ -648,6 +710,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       setView,
       toggleTheme,
       saveUserProfile,
+      updateDisplayName,
+      updateAccountEmail,
+      changePassword,
+      uploadAvatar,
       signIn,
       signUp,
       signOut,
@@ -678,6 +744,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       setView,
       toggleTheme,
       saveUserProfile,
+      updateDisplayName,
+      updateAccountEmail,
+      changePassword,
+      uploadAvatar,
       signIn,
       signUp,
       signOut,
