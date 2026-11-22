@@ -1,0 +1,199 @@
+import { createSeedSets } from '../data/seedSets';
+import { Card, MasteryStatus, StorageSchemaV1, StudySet, ThemeMode } from '../types';
+
+export const STORAGE_KEY = 'quizflow_storage_v1';
+export const CURRENT_SCHEMA_VERSION = 1 as const;
+
+export function generateId(prefix = 'id'): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}_${crypto.randomUUID()}`;
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isMasteryStatus(value: unknown): value is MasteryStatus {
+  return value === 'new' || value === 'learning' || value === 'mastered';
+}
+
+function isThemeMode(value: unknown): value is ThemeMode {
+  return value === 'light' || value === 'dark';
+}
+
+function sanitizeCard(raw: unknown): Card | null {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.term !== 'string' || typeof raw.definition !== 'string') {
+    return null;
+  }
+
+  return {
+    id: typeof raw.id === 'string' && raw.id.trim() ? raw.id : generateId('card'),
+    term: raw.term,
+    definition: raw.definition,
+    starred: typeof raw.starred === 'boolean' ? raw.starred : false,
+    mastery: isMasteryStatus(raw.mastery) ? raw.mastery : 'new',
+    correctStreak:
+      typeof raw.correctStreak === 'number' && Number.isFinite(raw.correctStreak)
+        ? Math.max(0, Math.floor(raw.correctStreak))
+        : 0,
+    lastReviewedAt:
+      typeof raw.lastReviewedAt === 'number' && Number.isFinite(raw.lastReviewedAt)
+        ? raw.lastReviewedAt
+        : null,
+  };
+}
+
+export function sanitizeStudySet(raw: unknown, regenerateIds = false): StudySet | null {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.title !== 'string' || !raw.title.trim()) return null;
+  if (!Array.isArray(raw.cards)) return null;
+
+  const sanitizedCards: Card[] = [];
+  for (const item of raw.cards) {
+    const card = sanitizeCard(item);
+    if (card && card.term.trim() && card.definition.trim()) {
+      sanitizedCards.push(
+        regenerateIds ? { ...card, id: generateId('card') } : card
+      );
+    }
+  }
+
+  if (sanitizedCards.length === 0) return null;
+
+  const now = Date.now();
+  const rawTags = Array.isArray(raw.tags)
+    ? raw.tags
+        .filter((t): t is string => typeof t === 'string')
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : [];
+
+  return {
+    id:
+      !regenerateIds && typeof raw.id === 'string' && raw.id.trim()
+        ? raw.id
+        : generateId('set'),
+    title: raw.title.trim(),
+    description: typeof raw.description === 'string' ? raw.description.trim() : '',
+    tags: Array.from(new Set(rawTags)),
+    cards: sanitizedCards,
+    createdAt:
+      typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt)
+        ? raw.createdAt
+        : now,
+    updatedAt:
+      typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt)
+        ? raw.updatedAt
+        : now,
+    bestMatchTimeMs:
+      typeof raw.bestMatchTimeMs === 'number' && raw.bestMatchTimeMs > 0
+        ? raw.bestMatchTimeMs
+        : null,
+  };
+}
+
+function getDefaultTheme(): ThemeMode {
+  if (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  ) {
+    return 'dark';
+  }
+  return 'light';
+}
+
+export function loadStorageState(): StorageSchemaV1 {
+  const fallback: StorageSchemaV1 = {
+    version: CURRENT_SCHEMA_VERSION,
+    theme: getDefaultTheme(),
+    sets: createSeedSets(),
+  };
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      saveStorageState(fallback);
+      return fallback;
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) {
+      return fallback;
+    }
+
+    const theme: ThemeMode = isThemeMode(parsed.theme)
+      ? parsed.theme
+      : getDefaultTheme();
+
+    if (parsed.version === 1 && Array.isArray(parsed.sets)) {
+      const sets = parsed.sets
+        .map((item) => sanitizeStudySet(item, false))
+        .filter((item): item is StudySet => item !== null);
+
+      return {
+        version: CURRENT_SCHEMA_VERSION,
+        theme,
+        sets,
+      };
+    }
+
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveStorageState(state: StorageSchemaV1): boolean {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export interface JsonImportResult {
+  kind: 'database' | 'single-set';
+  sets: StudySet[];
+}
+
+export function parseImportedJson(rawJson: string): JsonImportResult | null {
+  try {
+    const parsed: unknown = JSON.parse(rawJson);
+    if (!isRecord(parsed)) return null;
+
+    if (Array.isArray(parsed.sets)) {
+      const sets = parsed.sets
+        .map((item) => sanitizeStudySet(item, true))
+        .filter((item): item is StudySet => item !== null);
+      if (sets.length === 0) return null;
+      return { kind: 'database', sets };
+    }
+
+    const singleSet = sanitizeStudySet(parsed, true);
+    if (singleSet) {
+      return { kind: 'single-set', sets: [singleSet] };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function downloadJsonFile(filename: string, payload: unknown): void {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
