@@ -6,7 +6,7 @@ import { detectSpeechLanguage, speakText, stopSpeech } from '../../utils/speech'
 import { normalizeAnswer } from '../../utils/text';
 
 export const AudioMode: React.FC<{ set: StudySet }> = ({ set }) => {
-  const { setView, reviewCard, notify } = useApp();
+  const { setView, reviewCard, notify, speechSettings } = useApp();
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [checked, setChecked] = useState<boolean | null>(null);
@@ -16,7 +16,7 @@ export const AudioMode: React.FC<{ set: StudySet }> = ({ set }) => {
 
   const play = () => {
     if (!card) return;
-    void speakText(card.term, 'auto').then((spoken) => {
+    void speakText(card.term, 'auto', undefined, undefined, speechSettings).then((spoken) => {
       if (!spoken) notify('Не удалось озвучить слово. Проверьте, установлен ли на телефоне голосовой движок.','error');
     });
   };

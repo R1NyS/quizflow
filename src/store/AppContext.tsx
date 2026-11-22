@@ -12,6 +12,7 @@ import {
   AppView,
   Card,
   MasteryStatus,
+  SpeechSettings,
   StorageSchemaV1,
   StudySet,
   StudyStats,
@@ -30,6 +31,8 @@ import {
   sanitizeStudySet,
   loadStudyStats,
   saveStudyStats,
+  loadSpeechSettings,
+  saveSpeechSettings,
 } from '../utils/storage';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { appViewFromPath } from '../utils/routes';
@@ -41,6 +44,7 @@ interface AppState {
   view: AppView;
   toasts: ToastMessage[];
   studyStats: StudyStats;
+  speechSettings: SpeechSettings;
 }
 
 type Action =
@@ -68,6 +72,7 @@ type Action =
   | { type: 'ADD_TOAST'; payload: ToastMessage }
   | { type: 'REMOVE_TOAST'; payload: string }
   | { type: 'SET_STUDY_STATS'; payload: StudyStats }
+  | { type: 'SET_SPEECH_SETTINGS'; payload: SpeechSettings }
   | { type: 'REVIEW_CARD'; payload: { setId: string; cardId: string; quality: 'again' | 'hard' | 'good' | 'easy'; at: number } };
 
 function appReducer(state: AppState, action: Action): AppState {
@@ -188,6 +193,8 @@ function appReducer(state: AppState, action: Action): AppState {
       };
     case 'SET_STUDY_STATS':
       return { ...state, studyStats: action.payload };
+    case 'SET_SPEECH_SETTINGS':
+      return { ...state, speechSettings: action.payload };
     case 'REVIEW_CARD': {
       const { setId, cardId, quality, at } = action.payload;
       const previous = state.sets.find((set) => set.id === setId)?.cards.find((card) => card.id === cardId);
@@ -258,6 +265,7 @@ interface AppContextValue {
   view: AppView;
   toasts: ToastMessage[];
   studyStats: StudyStats;
+  speechSettings: SpeechSettings;
   setView: (view: AppView) => void;
   toggleTheme: () => void;
   saveUserProfile: (profile: UserProfile) => void;
@@ -282,6 +290,7 @@ interface AppContextValue {
   resetSetProgress: (setId: string) => void;
   reviewCard: (setId: string, cardId: string, quality: 'again' | 'hard' | 'good' | 'easy') => void;
   setDailyGoal: (goal: number) => void;
+  updateSpeechSettings: (settings: SpeechSettings) => void;
   adoptSharedSet: (set: StudySet, fromRemote?: boolean) => void;
   notify: (text: string, type?: ToastType) => void;
   dismissToast: (id: string) => void;
@@ -310,6 +319,7 @@ function createInitialState(): AppState {
     view: appViewFromPath(window.location.pathname),
     toasts: [],
     studyStats: loadStudyStats(),
+    speechSettings: loadSpeechSettings(),
   };
 }
 
@@ -685,6 +695,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     dispatch({ type: 'SET_STUDY_STATS', payload: { ...state.studyStats, dailyGoal: Math.min(200, Math.max(5, Math.floor(goal))) } });
   }, [state.studyStats]);
 
+  const updateSpeechSettings = useCallback((settings: SpeechSettings) => {
+    const cleaned: SpeechSettings = {
+      rate: Math.min(2, Math.max(0.5, Number.isFinite(settings.rate) ? settings.rate : 1)),
+      volume: Math.min(1, Math.max(0, Number.isFinite(settings.volume) ? settings.volume : 1)),
+      voiceURI: settings.voiceURI,
+    };
+    if (!saveSpeechSettings(cleaned)) {
+      notify('Не удалось сохранить настройки озвучивания на устройстве.', 'error');
+      return;
+    }
+    dispatch({ type: 'SET_SPEECH_SETTINGS', payload: cleaned });
+  }, [notify]);
+
   const adoptSharedSet = useCallback((set: StudySet, fromRemote = false) => {
     if (fromRemote && set.collaborationId) sharedSyncRef.current.set(set.collaborationId, set.updatedAt);
     dispatch({ type: 'UPSERT_SET', payload: set });
@@ -707,6 +730,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       view: state.view,
       toasts: state.toasts,
       studyStats: state.studyStats,
+      speechSettings: state.speechSettings,
       setView,
       toggleTheme,
       saveUserProfile,
@@ -726,6 +750,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       resetSetProgress,
       reviewCard,
       setDailyGoal,
+      updateSpeechSettings,
       adoptSharedSet,
       notify,
       dismissToast,
@@ -741,6 +766,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       state.view,
       state.toasts,
       state.studyStats,
+      state.speechSettings,
       setView,
       toggleTheme,
       saveUserProfile,
@@ -760,6 +786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       resetSetProgress,
       reviewCard,
       setDailyGoal,
+      updateSpeechSettings,
       adoptSharedSet,
       notify,
       dismissToast,

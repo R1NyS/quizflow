@@ -1,5 +1,47 @@
 import { Capacitor } from '@capacitor/core';
 import { QueueStrategy, TextToSpeech } from '@capacitor-community/text-to-speech';
+import { SpeechSettings } from '../types';
+
+export interface SpeechVoiceOption {
+  voiceURI: string;
+  name: string;
+  lang: string;
+}
+
+export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
+  rate: 1,
+  volume: 1,
+  voiceURI: '',
+};
+
+export async function getSpeechVoices(): Promise<SpeechVoiceOption[]> {
+  if (Capacitor.isNativePlatform()) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const { voices } = await TextToSpeech.getSupportedVoices();
+        return voices.map(({ voiceURI, name, lang }) => ({ voiceURI, name, lang }));
+      } catch {
+        if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
+      }
+    }
+    return [];
+  }
+
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return [];
+  const synthesis = window.speechSynthesis;
+  const currentVoices = synthesis.getVoices();
+  if (currentVoices.length) return currentVoices.map(({ voiceURI, name, lang }) => ({ voiceURI, name, lang }));
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      window.clearTimeout(timeoutId);
+      synthesis.removeEventListener('voiceschanged', finish);
+      resolve(synthesis.getVoices().map(({ voiceURI, name, lang }) => ({ voiceURI, name, lang })));
+    };
+    const timeoutId = window.setTimeout(finish, 1500);
+    synthesis.addEventListener('voiceschanged', finish, { once: true });
+  });
+}
 
 export type SpeechLangOption =
   | 'auto'
@@ -63,7 +105,8 @@ export function speakText(
   text: string,
   langOption: SpeechLangOption,
   onStart?: () => void,
-  onEnd?: () => void
+  onEnd?: () => void,
+  settings: SpeechSettings = DEFAULT_SPEECH_SETTINGS
 ): Promise<boolean> {
   if (!text.trim()) {
     onEnd?.();
@@ -76,12 +119,19 @@ export function speakText(
     onStart?.();
     const speakNatively = async (attempt = 0): Promise<boolean> => {
       try {
+        const { voices } = settings.voiceURI
+          ? await TextToSpeech.getSupportedVoices()
+          : { voices: [] };
+        const voice = settings.voiceURI
+          ? voices.findIndex((candidate) => candidate.voiceURI === settings.voiceURI)
+          : -1;
         await TextToSpeech.speak({
           text,
           lang,
-          rate: 0.96,
+          rate: settings.rate,
           pitch: 1,
-          volume: 1,
+          volume: settings.volume,
+          voice: voice >= 0 ? voice : -1,
           queueStrategy: QueueStrategy.Flush,
         });
         return true;
@@ -109,7 +159,12 @@ export function speakText(
   try {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
-    utterance.rate = 0.96;
+    utterance.rate = settings.rate;
+    utterance.volume = settings.volume;
+    if (settings.voiceURI) {
+      utterance.voice = window.speechSynthesis.getVoices()
+        .find((voice) => voice.voiceURI === settings.voiceURI) ?? null;
+    }
 
     if (onStart) utterance.onstart = onStart;
     return new Promise((resolve) => {

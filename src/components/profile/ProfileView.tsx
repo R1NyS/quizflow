@@ -7,6 +7,7 @@ import {
   Cloud,
   Eye,
   EyeOff,
+  Gauge,
   KeyRound,
   LoaderCircle,
   LockKeyhole,
@@ -15,9 +16,11 @@ import {
   Moon,
   Sun,
   UserRound,
+  Volume2,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { ProfileAvatar } from './ProfileAvatar';
+import { getSpeechVoices, speakText, type SpeechVoiceOption } from '../../utils/speech';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -34,7 +37,10 @@ export const ProfileView: React.FC = () => {
     sets,
     theme,
     studyStats,
+    speechSettings,
     setDailyGoal,
+    updateSpeechSettings,
+    notify,
     toggleTheme,
     updateDisplayName,
     updateAccountEmail,
@@ -72,6 +78,15 @@ export const ProfileView: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [speechVoices, setSpeechVoices] = useState<SpeechVoiceOption[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void getSpeechVoices().then((voices) => {
+      if (active) setSpeechVoices(voices);
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => setDisplayName(accountName), [accountName]);
 
@@ -148,6 +163,20 @@ export const ProfileView: React.FC = () => {
     setUploadingAvatar(false);
     if (result.ok) setProfileNotice('Аватар обновлён.');
     else setProfileError(result.error ?? 'Не удалось загрузить изображение.');
+  };
+
+  const playSpeechPreview = () => {
+    const voice = speechVoices.find((candidate) => candidate.voiceURI === speechSettings.voiceURI);
+    const language = voice?.lang.toLowerCase().split('-')[0];
+    const preview = language === 'ru' ? 'Проверка голоса QuizFlow.' : 'QuizFlow voice preview.';
+    const languageOption = language === 'ru' ? 'ru-RU'
+      : language === 'es' ? 'es-ES'
+        : language === 'de' ? 'de-DE'
+          : language === 'fr' ? 'fr-FR'
+            : 'en-US';
+    void speakText(preview, languageOption, undefined, undefined, speechSettings).then((spoken) => {
+      if (!spoken) notify('Не удалось запустить озвучивание. Проверьте голосовой движок устройства.', 'error');
+    });
   };
 
   return (
@@ -272,6 +301,38 @@ export const ProfileView: React.FC = () => {
               </form>
             </div>
           )}
+
+          <section className={`${panelClass} mt-4`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white"><Volume2 className="h-4 w-4 text-indigo-500" />Настройки озвучивания</div>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Голос и громкость для карточек и аудиотренировки. Сохраняются на этом устройстве.</p>
+              </div>
+              <button type="button" onClick={playSpeechPreview} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"><Volume2 className="h-4 w-4" />Проверить голос</button>
+            </div>
+
+            <div className="mt-5 grid gap-5 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <span className="flex items-center justify-between"><span className="inline-flex items-center gap-2"><Gauge className="h-4 w-4 text-slate-400" />Скорость</span><span>{speechSettings.rate.toFixed(1)}×</span></span>
+                <input type="range" min="0.5" max="2" step="0.1" value={speechSettings.rate} onChange={(event) => updateSpeechSettings({ ...speechSettings, rate: Number(event.target.value) })} className="mt-3 w-full accent-indigo-600" aria-label="Скорость озвучивания" />
+                <span className="flex justify-between text-xs text-slate-400"><span>Медленно</span><span>Быстро</span></span>
+              </label>
+
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <span className="flex items-center justify-between"><span className="inline-flex items-center gap-2"><Volume2 className="h-4 w-4 text-slate-400" />Громкость</span><span>{Math.round(speechSettings.volume * 100)}%</span></span>
+                <input type="range" min="0" max="1" step="0.05" value={speechSettings.volume} onChange={(event) => updateSpeechSettings({ ...speechSettings, volume: Number(event.target.value) })} className="mt-3 w-full accent-indigo-600" aria-label="Громкость озвучивания" />
+                <span className="flex justify-between text-xs text-slate-400"><span>Тихо</span><span>Громко</span></span>
+              </label>
+
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 sm:col-span-2">Голос
+                <select value={speechSettings.voiceURI} onChange={(event) => updateSpeechSettings({ ...speechSettings, voiceURI: event.target.value })} className={inputClass}>
+                  <option value="">Системный голос по умолчанию</option>
+                  {speechVoices.map((voice) => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name} · {voice.lang}</option>)}
+                </select>
+                {speechVoices.length === 0 && <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">Используется голос, выбранный в настройках речи устройства.</span>}
+              </label>
+            </div>
+          </section>
         </div>
       </section>
     </main>

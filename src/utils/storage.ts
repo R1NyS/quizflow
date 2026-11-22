@@ -1,10 +1,36 @@
 import { createSeedSets } from '../data/seedSets';
-import { Card, MasteryStatus, StorageSchemaV1, StudySet, StudyStats, ThemeMode, UserProfile } from '../types';
+import { Card, MasteryStatus, SpeechSettings, StorageSchemaV1, StudySet, StudyStats, ThemeMode, UserProfile } from '../types';
 
 export const STORAGE_KEY = 'quizflow_storage_v1';
 export const CURRENT_SCHEMA_VERSION = 1 as const;
 export const PROFILE_STORAGE_KEY = 'quizflow_profile_v1';
 export const STUDY_STATS_STORAGE_KEY = 'quizflow_study_stats_v1';
+export const SPEECH_SETTINGS_STORAGE_KEY = 'quizflow_speech_settings_v1';
+
+export function loadSpeechSettings(): SpeechSettings {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(SPEECH_SETTINGS_STORAGE_KEY) ?? 'null');
+    if (isRecord(parsed)) {
+      return {
+        rate: typeof parsed.rate === 'number' ? Math.min(2, Math.max(0.5, parsed.rate)) : 1,
+        volume: typeof parsed.volume === 'number' ? Math.min(1, Math.max(0, parsed.volume)) : 1,
+        voiceURI: typeof parsed.voiceURI === 'string' ? parsed.voiceURI : '',
+      };
+    }
+  } catch {
+    // Use device defaults if the saved settings are missing or invalid.
+  }
+  return { rate: 1, volume: 1, voiceURI: '' };
+}
+
+export function saveSpeechSettings(settings: SpeechSettings): boolean {
+  try {
+    window.localStorage.setItem(SPEECH_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function loadStudyStats(): StudyStats {
   try {

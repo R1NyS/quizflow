@@ -47,7 +47,7 @@ function getAdaptiveTextClass(text: string): string {
 }
 
 export const FlashcardsMode: React.FC<FlashcardsModeProps> = ({ set }) => {
-  const { setView, toggleCardStar, updateCardProgress, notify } = useApp();
+  const { setView, toggleCardStar, updateCardProgress, notify, speechSettings } = useApp();
 
   const speechAvailable = useMemo(() => isSpeechSupported(), []);
 
@@ -271,7 +271,8 @@ export const FlashcardsMode: React.FC<FlashcardsModeProps> = ({ set }) => {
         textToRead,
         speechLang,
         () => setIsSpeaking(true),
-        () => setIsSpeaking(false)
+        () => setIsSpeaking(false),
+        speechSettings
       ).then((spoken) => {
         if (!spoken) {
           setIsSpeaking(false);
@@ -279,7 +280,7 @@ export const FlashcardsMode: React.FC<FlashcardsModeProps> = ({ set }) => {
         }
       });
     },
-    [speechAvailable, currentCard, isFlipped, backText, frontText, speechLang, notify]
+    [speechAvailable, currentCard, isFlipped, backText, frontText, speechLang, speechSettings, notify]
   );
 
   // Горячие клавиши

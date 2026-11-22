@@ -35,6 +35,12 @@ export interface UserProfile {
   avatarPath?: string | null;
 }
 
+export interface SpeechSettings {
+  rate: number;
+  volume: number;
+  voiceURI: string;
+}
+
 export interface StorageSchemaV1 {
   version: 1;
   theme: ThemeMode;
