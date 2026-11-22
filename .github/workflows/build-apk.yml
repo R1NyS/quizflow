@@ -32,8 +32,8 @@ jobs:
           VITE_PUBLIC_APP_URL: https://quizflow-lxwlne82u-rinys.vercel.app
         run: npm run build
 
-      - name: Sync Capacitor Android project
-        run: npx cap sync android
+      - name: Copy web assets to Android
+        run: npx cap copy android
 
       - name: Build Debug APK
         working-directory: android
